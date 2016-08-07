@@ -2,9 +2,17 @@ from flask import Flask, request, jsonify
 from functools import wraps
 app = Flask(__name__)
 
+
+##################################
+#
+# Class / Constant Vars
+#
+##################################
 allowed_payment_schedules = ['weekly', 'biweekly', 'monthly']
 min_amortization = 5
 max_amortization = 25
+mortgate_interest_rate = 0.025
+max_insurable_mortgage = 1000000
 
 
 ###################################
@@ -27,6 +35,16 @@ def is_down_payment_valid(asking_price, down_payment):
 		min_down_payment = asking_price*0.05
 	return down_payment >= min_down_payment
 
+
+def calculate_insurance(asking_price, down_payment):
+	ratio = down_payment / asking_price
+	if(ratio < 0.1):
+		return 3.15
+	if(ratio < 0.15):
+		return 2.4
+	if(ratio < 20):
+		return 1.8
+	return 0
 
 def is_int(value):
 	try:
@@ -89,9 +107,12 @@ def amortization_period_required(f):
 	def decorated_function(*args, **kwargs):
 		amortization_period = request.args.get('amortization_period')
 		if(amortization_period):
-			if(min_amortization < amortization_period < max_amortization):
+			if(not is_int(amortization_period)):
+				return return_error('amortization period must be an int', 400)
+			amortization_period_int = int(amortization_period)
+			if(min_amortization <= amortization_period_int <= max_amortization):
 					return f(*args, **kwargs)
-			return return_error('invalid amortization period; must be between 5 and 25 (years)', 400)
+			return return_error('invalid amortization period; must be between ' + str(min_amortization) + ' and ' + str(max_amortization) + ' (years)', 400)
 		return return_error('missing parameter amortization_period', 400)
 	return decorated_function
 
@@ -109,7 +130,37 @@ def amortization_period_required(f):
 @payment_schedule_required
 @amortization_period_required
 def calculate_mortgage():
-	return 0
+	down_payment = int(request.args.get('down_payment'))
+	asking_price = int(request.args.get('asking_price'))
+	payment_schedule =  request.args.get('payment_schedule')
+	amortization_period = int(request.args.get('amortization_period'))
+
+	insurance_cost = calculate_insurance(asking_price, down_payment)
+	loan = asking_price - down_payment
+
+	if(insurance_cost > 0.0):
+		if(loan > max_insurable_mortgage):
+			return return_error('your down payment requires mortgage insurance which is not avalible for this request', 200)
+		loan = loan * (1 + (insurance_cost / 100) )
+
+	if(payment_schedule == 'weekly'):
+		number_of_payments = amortization_period * 52.1429
+		interest_rate = mortgate_interest_rate / 52.1429
+	elif(payment_schedule == 'biweekly'):
+		number_of_payments = amortization_period * 26.07145
+		interest_rate = mortgate_interest_rate / 26.07145
+	elif(payment_schedule == 'monthly'):
+		number_of_payments = amortization_period * 12
+		interest_rate = mortgate_interest_rate / 12
+
+	numerator = interest_rate*( (1+interest_rate)**number_of_payments) 
+	demoninator = ((1 + interest_rate)**number_of_payments) -1
+	payment = loan * ( numerator / demoninator )
+	payment = format(payment, '.2f')
+
+	response = {}
+	response[payment_schedule + ' Payment'] = payment
+	return	jsonify(response)
 
 if __name__ == "__main__":
     app.run()
