@@ -13,6 +13,7 @@ To run the program:
 python app/__init__.py
 
 NOTES:
+
 1. The first line in the requirements file is misleading.
 According to internet standards GET requests cannot contain a payload, so it is impossible for a get request to accept JSON.
 
