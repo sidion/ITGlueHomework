@@ -57,7 +57,8 @@ class MortgageCalculatorTestCase(unittest.TestCase):
 	def test_amortization_period_valid(self):
 		rv = self.app.get('/rate?asking_price=1&down_payment=1&payment_schedule=weekly&amortization_period=1')
 		assert 'invalid amortization period; must be between 5 and 25 (years)' in rv.data
-
+		rv = self.app.get('/rate?asking_price=1&down_payment=1&payment_schedule=weekly&amortization_period=100')
+		assert 'invalid amortization period; must be between 5 and 25 (years)' in rv.data
 
 
 	def test_down_payment_valid(self):

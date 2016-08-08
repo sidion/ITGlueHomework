@@ -97,7 +97,10 @@ def payment_schedule_required(f):
 		if(payment_schedule):
 			if(payment_schedule in allowed_payment_schedules):
 				return f(*args, **kwargs)
-			return return_error('invalid payment schedule; must be one of: weekly, biweekly, monthly', 400)
+			
+			error_string = 'invalid payment schedule; must be one of: '
+			error_string = error_string + ', '.join(allowed_payment_schedules)
+			return return_error(error_string, 400)
 		return return_error('missing parameter payment_schedule', 400)
 	return decorated_function
 
@@ -109,6 +112,7 @@ def amortization_period_required(f):
 		if(amortization_period):
 			if(not is_int(amortization_period)):
 				return return_error('amortization period must be an int', 400)
+
 			amortization_period_int = int(amortization_period)
 			if(min_amortization <= amortization_period_int <= max_amortization):
 					return f(*args, **kwargs)
